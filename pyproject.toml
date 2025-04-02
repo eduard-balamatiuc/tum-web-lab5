@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "go2web"
 version = "0.1.0"
 description = "a command line program for making http requests"
-file = "README.md"
+readme = "README.md"
 license = {text = "MIT"}
 authors = [
     {name = "Eduard Balamatiuc", email = "balamatiuc2@gmail.com"}
