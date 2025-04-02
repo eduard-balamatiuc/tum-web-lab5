@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "go2web"
+version = "0.1.0"
+description = "a command line program for making http requests"
+file = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "Eduard Balamatiuc", email = "balamatiuc2@gmail.com"}
+]
+keywords = ["web", "https", "cli"]
+classifiers = ["Programming Language :: Python :: 3"]
+
+[projects.scripts]
+go2web = "go2web.main:main"
