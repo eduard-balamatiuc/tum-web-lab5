@@ -10,3 +10,8 @@ parser.add_argument(
     "-u",
     "--url",
 )
+
+parser.add_argument(
+    "-s",
+    "--search-term",
+)
