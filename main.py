@@ -5,3 +5,8 @@ parser = argparse.ArgumentParser(
     description="Command Line Program for HTTP requests",
     epilog="use the -h anytime you need some help",
 )
+
+parser.add_argument(
+    "-u",
+    "--url",
+)
