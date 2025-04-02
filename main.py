@@ -15,8 +15,3 @@ parser.add_argument(
     "-s",
     "--search-term",
 )
-
-parser.add_argument(
-    "-h",
-    "--help",
-)
