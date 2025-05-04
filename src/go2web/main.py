@@ -20,6 +20,8 @@ def make_request(
         # Creating the Request structure
         request = f"{method} {path} HTTP/1.1\r\n"
         request += f"Host: {host}\r\n"
+        request += "Connection: close\r\n"
+
         if headers:
             for key, value in headers.items():
                 request += f"{key}: {value}\r\n"
