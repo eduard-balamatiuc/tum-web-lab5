@@ -104,6 +104,28 @@ def get_protocol_host_port_path_from_url(url):
 
     return protocol, host, port, path
 
+def follow_redirects(host, port, path, max_redirects=5):
+    redirect_count = 0
+    
+    while redirect_count < max_redirects:
+        status_code, headers, body = make_request(host=host, port=port, path=path)
+        
+        # Check if response is a redirect
+        if status_code in (301, 302, 303, 307) and 'Location' in headers:
+            redirect_url = headers['Location']
+            print(f"Following redirect to: {redirect_url}")
+            
+            # Parse the new URL
+            protocol, host, port, path = get_protocol_host_port_path_from_url(redirect_url)
+            redirect_count += 1
+        else:
+            # Not a redirect, return the response
+            return status_code, headers, body
+    
+    print(f"Warning: Maximum number of redirects ({max_redirects}) followed.")
+    return status_code, headers, body
+
+
 
 def postprocess_request_body(body):
     soup = BeautifulSoup(body, "html.parser")
@@ -115,8 +137,8 @@ def postprocess_request_body(body):
 def fetch_url(url):
         
     protocol, host, port, path = get_protocol_host_port_path_from_url(url)
-    
-    status_code, headers, body = make_request(
+
+    status_code, headers, body = follow_redirects(
         host=host,
         port=port,
         path=path
@@ -135,10 +157,59 @@ def fetch_url(url):
     print("Body:")
     print(postprocessed_body)
 
+def parse_search_results(body, result_count=10):
+    soup = BeautifulSoup(body, "html.parser")
+    results = []
+    
+    # Look for result links in DuckDuckGo Lite format
+    for i, a in enumerate(soup.select('a.result-link')):
+        if i >= result_count:
+            break
+            
+        # Get the link and title
+        link = a.get('href')
+        title = a.get_text(strip=True)
+        
+        # Try to find the snippet
+        snippet = ""
+        snippet_elem = a.find_next('td', class_='result-snippet')
+        if snippet_elem:
+            snippet = snippet_elem.get_text(strip=True)
+        
+        results.append({
+            'title': title,
+            'link': link,
+            'snippet': snippet
+        })
+    
+    return results
 
 def search_term(term):
-    pass
-
+    # I tried duckduckgo.com but I found it that using the lite version would be easier
+    search_url = f"https://lite.duckduckgo.com/lite/?q={term.replace(' ', '+')}"
+    protocol, host, port, path = get_protocol_host_port_path_from_url(search_url)
+    
+    status_code, headers, body = make_request(
+        host=host,
+        port=port,
+        path=path
+    )
+    
+    if status_code is None:
+        print("Failed to get a valid response")
+        return []
+    
+    results = parse_search_results(body)
+    
+    print(f"Search Results for '{term}':")
+    for i, result in enumerate(results, 1):
+        print(f"{i}. {result['title']}")
+        print(f"   Link: {result['link']}")
+        if 'snippet' in result and result['snippet']:
+            print(f"   {result['snippet']}")
+        print()
+    
+    return results
 
 
 
