@@ -7,11 +7,23 @@ name = "go2web"
 version = "0.1.0"
 description = "a command line program for making http requests"
 readme = "README.md"
+requires-python = ">=3.12"
 authors = [
     {name = "Eduard Balamatiuc", email = "balamatiuc2@gmail.com"}
 ]
 keywords = ["web", "https", "cli"]
 classifiers = ["Programming Language :: Python :: 3"]
+dependencies = [
+    "bs4>=0.0.2",
+]
 
 [project.scripts]
 go2web = "go2web.main:main"
+
+[dependency-groups]
+dev = [
+    "go2web",
+]
+
+[tool.uv.sources]
+go2web = { workspace = true }
