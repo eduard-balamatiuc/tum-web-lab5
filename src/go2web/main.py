@@ -40,33 +40,84 @@ def make_request(
             if not chunk:
                 break
             response += chunk
-        decoded_response = response.decode()
 
-        headers, body = decoded_response.split("\r\n\r\n", 1)
-        headers = headers.split("\r\n")
-        status_code = int(headers[0].split(" ")[1])
-
+        header_end = response.find(b'\r\n\r\n')
+        
+        if header_end == -1:
+            # No header/body separator found
+            return None, None, None
+            
+        headers_data = response[:header_end]
+        body_data = response[header_end + 4:]
+        
+        # Decode headers safely
+        headers_text = headers_data.decode('utf-8', errors='replace')
+        headers = headers_text.split("\r\n")
+        
+        # Parse status code
+        status_line = headers[0]
+        status_parts = status_line.split(" ", 2)
+        if len(status_parts) >= 2:
+            status_code = int(status_parts[1])
+        else:
+            status_code = None
+            
+        # Parse headers into dictionary
         header_dict = {}
         for header in headers[1:]:
-            key, value = header.split(": ", 1)
-            header_dict[key] = value
-        return status_code, header_dict, body
+            if ": " in header:
+                key, value = header.split(": ", 1)
+                header_dict[key] = value
+        
+        # Try to decode the body - handle potential errors
+        try:
+            body_text = body_data.decode('utf-8', errors='replace')
+        except Exception as e:
+            body_text = f"[Error decoding body: {str(e)}]"
+            
+        return status_code, header_dict, body_text
 
     finally:
         s.close()
 
 
 def fetch_url(url):
+    # Parse URL to extract host and path
+    if "://" in url:
+        protocol, rest = url.split("://", 1)
+    else:
+        protocol, rest = "http", url
+        
+    if "/" in rest:
+        host, path = rest.split("/", 1)
+        path = "/" + path
+    else:
+        host = rest
+        path = "/"
+    
+    port = 80
+    if ":" in host:
+        host, port_str = host.split(":", 1)
+        port = int(port_str)
+        
+    print(f"Fetching {protocol}://{host}:{port}{path}")
+    
     status_code, headers, body = make_request(
-        host=url,
+        host=host,
+        port=port,
+        path=path
     )
+    
+    if status_code is None:
+        print("Failed to get a valid response")
+        return
+        
     print(f"Status Code: {status_code}")
     print("Headers:")
     for key, value in headers.items():
         print(f"{key}: {value}")
-    print("Body:")
-    print(body[:1000])  # Print only the first 1000 characters of the body
-
+    print("\nBody:")
+    print(body)
 
 
 def main():
