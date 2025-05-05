@@ -242,12 +242,12 @@ def main():
 
     args = parser.parse_args()
 
-    if args.url:
+    if args.url and args.search_term:
+        fetch_url(args.url)
+        search_term(args.search_term)
+    elif args.url:
         fetch_url(args.url)
     elif args.search_term:
-        search_term(args.search_term)
-    elif args.url and args.search_term:
-        fetch_url(args.url)
         search_term(args.search_term)
     else:
         parser.print_help()
