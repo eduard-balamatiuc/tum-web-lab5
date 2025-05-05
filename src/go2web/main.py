@@ -1,8 +1,16 @@
 import argparse 
+import os
 import socket
+import time
+import json
 import urllib.parse
 from bs4 import BeautifulSoup
 
+if not os.path.exists("cache.json"):
+    with open("cache.json", "w") as f:
+        json.dump({}, f)
+with open("cache.json", "r") as f:
+    CACHE = json.load(f)
 
 def make_request(
     host,
@@ -134,16 +142,41 @@ def postprocess_request_body(body):
 
     return text
 
-def fetch_url(url):
-        
-    protocol, host, port, path = get_protocol_host_port_path_from_url(url)
+def store_in_cache(url, status_code, headers, body):
+    CACHE[url] = (time.time(), status_code, headers, body)
+    with open("cache.json", "w") as f:
+        json.dump(CACHE, f)
 
-    status_code, headers, body = follow_redirects(
-        host=host,
-        port=port,
-        path=path
-    )
+def fetch_default(url):
+    print(f"Fetching URL: {url}")
+    protocol, host, port, path = get_protocol_host_port_path_from_url(url)
+    status_code, headers, body = follow_redirects(host=host, port=port, path=path)
     
+    store_in_cache(url, status_code, headers, body)
+    return status_code, headers, body
+
+def try_fetch_from_cache(url):
+    # Check if the URL is in the cache
+    if url in CACHE:
+        print("Fetching from cache...")
+        cache_timeout, status_code, headers, body = CACHE[url]
+        if time.time() - cache_timeout < 60:
+            return status_code, headers, body
+        else:
+            print("Cache expired.")
+            status_code, headers, body = fetch_default(url)
+    else:
+        print("URL not found in cache.")
+        status_code, headers, body = fetch_default(url)
+
+    return status_code, headers, body
+
+
+def fetch_url(url):
+
+    # Check if the URL is in the cache
+    status_code, headers, body = try_fetch_from_cache(url)
+
     if status_code is None:
         print("Failed to get a valid response")
         return
@@ -197,13 +230,8 @@ def parse_search_results(body, result_count=10):
 def search_term(term):
     # I tried duckduckgo.com but I found it that using the lite version would be easier
     search_url = f"https://lite.duckduckgo.com/lite/?q={term.replace(' ', '+')}"
-    protocol, host, port, path = get_protocol_host_port_path_from_url(search_url)
     
-    status_code, headers, body = make_request(
-        host=host,
-        port=port,
-        path=path
-    )
+    status_code, headers, body = try_fetch_from_cache(search_url)
     
     if status_code is None:
         print("Failed to get a valid response")
