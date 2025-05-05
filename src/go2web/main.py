@@ -1,6 +1,6 @@
 import argparse 
 import socket
-
+import urllib.parse
 from bs4 import BeautifulSoup
 
 
@@ -169,6 +169,16 @@ def parse_search_results(body, result_count=10):
         # Get the link and title
         link = a.get('href')
         title = a.get_text(strip=True)
+
+        # Extract the actual URL from DuckDuckGo's redirect link
+        if link.startswith("//duckduckgo.com/l/?uddg="):
+            # Remove the leading //duckduckgo.com/l/?uddg=
+            encoded_url = link.split("uddg=")[1]
+            if "&" in encoded_url:
+                encoded_url = encoded_url.split("&")[0]
+            # URL-decode the actual destination
+            actual_url = urllib.parse.unquote(encoded_url)
+            link = actual_url
         
         # Try to find the snippet
         snippet = ""
