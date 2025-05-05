@@ -22,6 +22,8 @@ def make_request(
         request += f"Host: {host}\r\n"
         request += "Connection: close\r\n"
 
+        # For this specific exercise I'm not actually using the headers when sending the request
+        # but for the sake of completeness of the function will leave it here
         if headers:
             for key, value in headers.items():
                 request += f"{key}: {value}\r\n"
@@ -80,9 +82,7 @@ def make_request(
     finally:
         s.close()
 
-
-def fetch_url(url):
-    # Parse URL to extract host and path
+def get_protocol_host_port_path_from_url(url):
     if "://" in url:
         protocol, rest = url.split("://", 1)
     else:
@@ -99,8 +99,18 @@ def fetch_url(url):
     if ":" in host:
         host, port_str = host.split(":", 1)
         port = int(port_str)
+
+    return protocol, host, port, path
+
+
+def postprocess_request_body(body):
+    # This is a placeholder for any post-processing logic
+    # For now, we'll just return the body as is
+    return body
+
+def fetch_url(url):
         
-    print(f"Fetching {protocol}://{host}:{port}{path}")
+    protocol, host, port, path = get_protocol_host_port_path_from_url(url)
     
     status_code, headers, body = make_request(
         host=host,
@@ -116,8 +126,10 @@ def fetch_url(url):
     print("Headers:")
     for key, value in headers.items():
         print(f"{key}: {value}")
-    print("\nBody:")
-    print(body)
+    
+    postprocessed_body = postprocess_request_body(body)
+    print("Body:")
+    print(postprocessed_body)
 
 
 def main():
