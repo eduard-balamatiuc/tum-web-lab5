@@ -21,9 +21,18 @@ def make_request(
     body=None,
     timeout=10,
     accept=None,
+    protocol="http",
 ):
     s = socket.socket()
     s.settimeout(timeout)
+
+    # Use HTTPS if specified
+    if protocol == "https":
+        import ssl
+        context = ssl.create_default_context()
+        s = context.wrap_socket(s, server_hostname=host)
+        if port == 80:  # Use default HTTPS port if standard HTTP port was specified
+            port = 443
 
     try:
         s.connect((host, port))
@@ -97,34 +106,52 @@ def get_protocol_host_port_path_from_url(url):
         protocol, rest = url.split("://", 1)
     else:
         protocol, rest = "http", url
-        
+    
+    # Handle port numbers in the URL
     if "/" in rest:
-        host, path = rest.split("/", 1)
+        host_part, path = rest.split("/", 1)
         path = "/" + path
     else:
-        host = rest
+        host_part = rest
         path = "/"
     
-    port = 80
-    if ":" in host:
-        host, port_str = host.split(":", 1)
+    # Extract port if it exists
+    port = 443 if protocol == "https" else 80  # Default ports based on protocol
+    if ":" in host_part:
+        host, port_str = host_part.split(":", 1)
         port = int(port_str)
+    else:
+        host = host_part
 
     return protocol, host, port, path
 
-def follow_redirects(host, port, path, max_redirects=5, accept=None):
+def follow_redirects(host, port, path, max_redirects=5, accept=None, protocol="http", visited_urls=None):
+    if visited_urls is None:
+        visited_urls = set()
+    
     redirect_count = 0
+    current_url = f"{protocol}://{host}:{port}{path}"
     
     while redirect_count < max_redirects:
-        status_code, headers, body = make_request(host=host, port=port, path=path, accept=accept)
+        # Check if we've already visited this URL to avoid loops
+        if current_url in visited_urls:
+            print(f"Warning: Redirect loop detected at {current_url}")
+            return None, None, None
+        
+        visited_urls.add(current_url)
+        
+        status_code, headers, body = make_request(
+            host=host, port=port, path=path, accept=accept, protocol=protocol
+        )
         
         # Check if response is a redirect
-        if status_code in (301, 302, 303, 307) and 'Location' in headers:
+        if status_code in (301, 302, 303, 307, 308) and 'Location' in headers:
             redirect_url = headers['Location']
             print(f"Following redirect to: {redirect_url}")
             
             # Parse the new URL
             protocol, host, port, path = get_protocol_host_port_path_from_url(redirect_url)
+            current_url = f"{protocol}://{host}:{port}{path}"
             redirect_count += 1
         else:
             # Not a redirect, return the response
@@ -132,7 +159,6 @@ def follow_redirects(host, port, path, max_redirects=5, accept=None):
     
     print(f"Warning: Maximum number of redirects ({max_redirects}) followed.")
     return status_code, headers, body
-
 
 def postprocess_request_body(body, content_type=None):
     # Check if we have JSON content
@@ -157,9 +183,12 @@ def store_in_cache(url, status_code, headers, body):
 def fetch_default(url, accept=None):
     print(f"Fetching URL: {url}")
     protocol, host, port, path = get_protocol_host_port_path_from_url(url)
-    status_code, headers, body = follow_redirects(host=host, port=port, path=path, accept=accept)
+    status_code, headers, body = follow_redirects(
+        host=host, port=port, path=path, accept=accept, protocol=protocol
+    )
     
-    store_in_cache(url, status_code, headers, body)
+    if status_code:  # Only cache if we got a valid response
+        store_in_cache(url, status_code, headers, body)
     return status_code, headers, body
 
 def try_fetch_from_cache(url, accept=None):
@@ -264,7 +293,6 @@ def search_term(term):
         print()
     
     return results
-
 
 
 def main():
