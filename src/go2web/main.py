@@ -20,6 +20,7 @@ def make_request(
     headers=None,
     body=None,
     timeout=10,
+    accept=None,
 ):
     s = socket.socket()
     s.settimeout(timeout)
@@ -31,9 +32,8 @@ def make_request(
         request = f"{method} {path} HTTP/1.1\r\n"
         request += f"Host: {host}\r\n"
         request += "Connection: close\r\n"
-
-        # For this specific exercise I'm not actually using the headers when sending the request
-        # but for the sake of completeness of the function will leave it here
+        if accept:
+            request += f"Accept: {accept}\r\n"
         if headers:
             for key, value in headers.items():
                 request += f"{key}: {value}\r\n"
@@ -112,11 +112,11 @@ def get_protocol_host_port_path_from_url(url):
 
     return protocol, host, port, path
 
-def follow_redirects(host, port, path, max_redirects=5):
+def follow_redirects(host, port, path, max_redirects=5, accept=None):
     redirect_count = 0
     
     while redirect_count < max_redirects:
-        status_code, headers, body = make_request(host=host, port=port, path=path)
+        status_code, headers, body = make_request(host=host, port=port, path=path, accept=accept)
         
         # Check if response is a redirect
         if status_code in (301, 302, 303, 307) and 'Location' in headers:
@@ -134,12 +134,19 @@ def follow_redirects(host, port, path, max_redirects=5):
     return status_code, headers, body
 
 
-
-def postprocess_request_body(body):
+def postprocess_request_body(body, content_type=None):
+    # Check if we have JSON content
+    if content_type and 'application/json' in content_type:
+        try:
+            # Parse JSON content
+            data = json.loads(body)
+            return data  # Return the parsed JSON object
+        except json.JSONDecodeError:
+            print("Warning: Content-Type indicates JSON but couldn't parse it")
+    
+    # Default HTML processing
     soup = BeautifulSoup(body, "html.parser")
-
     text = soup.get_text(separator=" ", strip=True)
-
     return text
 
 def store_in_cache(url, status_code, headers, body):
@@ -147,15 +154,15 @@ def store_in_cache(url, status_code, headers, body):
     with open("cache.json", "w") as f:
         json.dump(CACHE, f)
 
-def fetch_default(url):
+def fetch_default(url, accept=None):
     print(f"Fetching URL: {url}")
     protocol, host, port, path = get_protocol_host_port_path_from_url(url)
-    status_code, headers, body = follow_redirects(host=host, port=port, path=path)
+    status_code, headers, body = follow_redirects(host=host, port=port, path=path, accept=accept)
     
     store_in_cache(url, status_code, headers, body)
     return status_code, headers, body
 
-def try_fetch_from_cache(url):
+def try_fetch_from_cache(url, accept=None):
     # Check if the URL is in the cache
     if url in CACHE:
         print("Fetching from cache...")
@@ -164,18 +171,17 @@ def try_fetch_from_cache(url):
             return status_code, headers, body
         else:
             print("Cache expired.")
-            status_code, headers, body = fetch_default(url)
+            status_code, headers, body = fetch_default(url, accept)
     else:
         print("URL not found in cache.")
-        status_code, headers, body = fetch_default(url)
+        status_code, headers, body = fetch_default(url, accept)
 
     return status_code, headers, body
 
 
-def fetch_url(url):
-
+def fetch_url(url, accept="text/html,application/json;q=0.9"):
     # Check if the URL is in the cache
-    status_code, headers, body = try_fetch_from_cache(url)
+    status_code, headers, body = try_fetch_from_cache(url, accept)
 
     if status_code is None:
         print("Failed to get a valid response")
@@ -186,9 +192,19 @@ def fetch_url(url):
     for key, value in headers.items():
         print(f"{key}: {value}")
     
-    postprocessed_body = postprocess_request_body(body)
+    # Get content type from headers
+    content_type = headers.get('Content-Type', '')
+    
+    # Process based on content type
+    processed_body = postprocess_request_body(body, content_type)
+    
     print("Body:")
-    print(postprocessed_body)
+    if isinstance(processed_body, (dict, list)):
+        # Pretty print JSON data
+        print(json.dumps(processed_body, indent=2))
+    else:
+        # Print text as usual
+        print(processed_body)
 
 def parse_search_results(body, result_count=10):
     soup = BeautifulSoup(body, "html.parser")
@@ -267,14 +283,20 @@ def main():
         "--search-term",
         help="Term to search for",
     )
+    parser.add_argument(
+        "-a",
+        "--accept",
+        help="Accepted content types (e.g. 'application/json,text/html')",
+        default="text/html,application/json;q=0.9",
+    )
 
     args = parser.parse_args()
 
     if args.url and args.search_term:
-        fetch_url(args.url)
+        fetch_url(args.url, accept=args.accept)
         search_term(args.search_term)
     elif args.url:
-        fetch_url(args.url)
+        fetch_url(args.url, accept=args.accept)
     elif args.search_term:
         search_term(args.search_term)
     else:
