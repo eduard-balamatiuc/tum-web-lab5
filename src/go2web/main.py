@@ -136,6 +136,12 @@ def fetch_url(url):
     print(postprocessed_body)
 
 
+def search_term(term):
+    pass
+
+
+
+
 def main():
     parser = argparse.ArgumentParser(
         prog="Go2Web",
@@ -158,7 +164,10 @@ def main():
     if args.url:
         fetch_url(args.url)
     elif args.search_term:
-        print("--search-term is not yet available")
+        search_term(args.search_term)
+    elif args.url and args.search_term:
+        fetch_url(args.url)
+        search_term(args.search_term)
     else:
         parser.print_help()
 
