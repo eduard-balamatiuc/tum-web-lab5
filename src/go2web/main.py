@@ -1,6 +1,8 @@
 import argparse 
 import socket
 
+from bs4 import BeautifulSoup
+
 
 def make_request(
     host,
@@ -104,9 +106,11 @@ def get_protocol_host_port_path_from_url(url):
 
 
 def postprocess_request_body(body):
-    # This is a placeholder for any post-processing logic
-    # For now, we'll just return the body as is
-    return body
+    soup = BeautifulSoup(body, "html.parser")
+
+    text = soup.get_text(separator=" ", strip=True)
+
+    return text
 
 def fetch_url(url):
         
